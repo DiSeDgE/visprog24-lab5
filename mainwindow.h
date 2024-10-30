@@ -1,8 +1,13 @@
-#ifndef MAINWINDOW_H
-#define MAINWINDOW_H
+class MainWindow : public QMainWindow
+{
+    Q_OBJECT
 
-#include <QMainWindow>
+public:
+    explicit MainWindow(QWidget *parent = nullptr);
+    ~MainWindow();
 
-namespace Ui {
-class MainWindow;
-}
+protected:
+    void closeEvent(QCloseEvent *event) override;
+};
+
+#endif // MAINWINDOW_H
