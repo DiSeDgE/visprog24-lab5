@@ -107,7 +107,7 @@
            </property>
            <layout class="QHBoxLayout" name="horizontalLayout_6">
             <item>
-             <widget class="QGroupBox" name="groupBox_2">
+             <widget class="QWidget" name="widget_2" native="true">
               <property name="sizePolicy">
                <sizepolicy hsizetype="Expanding" vsizetype="Minimum">
                 <horstretch>0</horstretch>
@@ -125,18 +125,6 @@
               </property>
               <property name="autoFillBackground">
                <bool>true</bool>
-              </property>
-              <property name="title">
-               <string>Шрифт</string>
-              </property>
-              <property name="alignment">
-               <set>Qt::AlignmentFlag::AlignCenter</set>
-              </property>
-              <property name="flat">
-               <bool>true</bool>
-              </property>
-              <property name="checkable">
-               <bool>false</bool>
               </property>
               <layout class="QHBoxLayout" name="horizontalLayout_3">
                <item>
@@ -149,7 +137,7 @@
              </widget>
             </item>
             <item>
-             <widget class="QGroupBox" name="groupBox">
+             <widget class="QWidget" name="widget" native="true">
               <property name="sizePolicy">
                <sizepolicy hsizetype="Expanding" vsizetype="Minimum">
                 <horstretch>0</horstretch>
@@ -167,18 +155,6 @@
               </property>
               <property name="autoFillBackground">
                <bool>true</bool>
-              </property>
-              <property name="title">
-               <string>Текст</string>
-              </property>
-              <property name="alignment">
-               <set>Qt::AlignmentFlag::AlignCenter</set>
-              </property>
-              <property name="flat">
-               <bool>true</bool>
-              </property>
-              <property name="checkable">
-               <bool>false</bool>
               </property>
               <layout class="QHBoxLayout" name="horizontalLayout_5">
                <item>
