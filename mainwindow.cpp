@@ -328,9 +328,12 @@ void MainWindow::onDefaultSettings(){
 
 void MainWindow::showAuthors()
 {
-    QMessageBox::information(this, "Авторы", "Сорокин Александр Николаевич\n"
-                                             "Каримов Максим Витальевич\n"
-                                             "ИП-215");
+    QMessageBox::information(this,
+                             "Авторы",
+                             "Сорокин Александр Николаевич\n"
+                             "Каримов Максим Витальевич\n"
+                             "Шипилов Дементий Андреевич\n"
+                             "ИП-215");
 }
 
 void MainWindow::showHelp()
@@ -416,9 +419,7 @@ void MainWindow::saveSettings() {
 
 }
 
-
-//********ФУНКЦИИ СОЗДАННЫЕ ЧЕРЕЗ СЛОТЫ***************
-
+//********ФУНКЦИИ, СОЗДАННЫЕ ЧЕРЕЗ СЛОТЫ***************
 
 void MainWindow::on_addRowButton_clicked()
 {
@@ -593,7 +594,7 @@ void MainWindow::on_colorButton_clicked()
         QList<QTableWidgetItem*> selectedItems = ui->tableWidget->selectedItems();
         for (QTableWidgetItem* item : selectedItems) {
             if (item) {
-                item->setTextColor(color);
+                item->setForeground(QBrush(color));
             }
         }
         settings.setValue("Text_editor/color", color);
