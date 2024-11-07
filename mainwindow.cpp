@@ -1,603 +1,528 @@
 #include "mainwindow.h"
 #include "ui_mainwindow.h"
-#include <QFileDialog>
-#include <QFile>
-#include <QTextStream>
-#include <QMessageBox>
-#include <QInputDialog>
-#include <QCloseEvent>
-#include <QColorDialog>
-#include <QSettings>
+#include "tabledialog.h"
+#include "findreplacedialog.h"
 
-MainWindow::MainWindow(QWidget *parent) :
-    QMainWindow(parent),
-    ui(new Ui::MainWindow)
+
+
+
+MainWindow::MainWindow(QWidget *parent)
+    : QMainWindow(parent), ui(new Ui::MainWindow)
 {
-    this->setFixedSize(this->width(), this->height());
     ui->setupUi(this);
     loadSettings();
 
-    // Привязываем действия из меню к слотам
-    connect(ui->actionNew, &QAction::triggered, this, &MainWindow::onNewFile);
-    connect(ui->actionOpen, &QAction::triggered, this, &MainWindow::onOpenFile);
-    connect(ui->actionSave, &QAction::triggered, this, &MainWindow::onSaveFile);
-    connect(ui->actionClear, &QAction::triggered, this, &MainWindow::onClearText);
-    connect(ui->actionReturn, &QAction::triggered, this, &MainWindow::onRestoreText);
-    connect(ui->actionAuthors, &QAction::triggered, this, &MainWindow::showAuthors);
-    connect(ui->actionHelp, &QAction::triggered, this, &MainWindow::showHelp);
-    connect(ui->actionFind, &QAction::triggered, this, &MainWindow::findText);
-    connect(ui->actionReplace, &QAction::triggered, this, &MainWindow::replaceText);
-    connect(ui->actionCopy, &QAction::triggered, this, &MainWindow::copyText);
-    connect(ui->actionPaste, &QAction::triggered, this, &MainWindow::pasteText);
-    connect(ui->actionSaveTable, &QAction::triggered, this, &MainWindow::onSaveTable);
-    connect(ui->actionOpenTable, &QAction::triggered, this, &MainWindow::onOpenTable);
-    connect(ui->actionDefault, &QAction::triggered, this, &MainWindow::onDefaultSettings);
+    QToolBar *toolbar = addToolBar("Text and Table Controls");
+
+    toolbar->addWidget(new QLabel("Text:"));
+
+    QFontComboBox *fontComboBox = new QFontComboBox(this);
+    toolbar->addWidget(fontComboBox);
+    connect(fontComboBox, &QFontComboBox::currentFontChanged, this, &MainWindow::onFontChanged);
+
+    QSpinBox *fontSizeSpinBox = new QSpinBox(this);
+    fontSizeSpinBox->setRange(8, 72);
+    toolbar->addWidget(fontSizeSpinBox);
+    connect(fontSizeSpinBox, QOverload<int>::of(&QSpinBox::valueChanged), this, &MainWindow::onFontSizeChanged);
+    QAction *textColorAction = toolbar->addAction("Text Color");
+    connect(textColorAction, &QAction::triggered, this, &MainWindow::onTextColorChanged);
+
+    toolbar->addSeparator();
+
+
+    toolbar->addWidget(new QLabel("Table:"));
+
+    QSpinBox *paddingSpinBox = new QSpinBox(this);
+    paddingSpinBox->setRange(0, 50);
+    paddingSpinBox->setValue(10);
+    toolbar->addWidget(paddingSpinBox);
+    connect(paddingSpinBox, QOverload<int>::of(&QSpinBox::valueChanged), this, &MainWindow::onPaddingChanged);
+
+
+    QAction *cellColorAction = toolbar->addAction("Cell Color");
+    connect(cellColorAction, &QAction::triggered, this, &MainWindow::onCellColorChanged);
+
+
+    findReplaceDialog = new FindReplaceDialog(this);
+
+    connect(findReplaceDialog, &FindReplaceDialog::findNext, this, &MainWindow::findNext);
+    connect(findReplaceDialog, &FindReplaceDialog::replace, this, &MainWindow::replace);
+    connect(findReplaceDialog, &FindReplaceDialog::replaceAll, this, &MainWindow::replaceAll);
+
+    connect(ui->actionRestore, &QAction::triggered, this, &MainWindow::on_actionRestore_triggered);
+
+    tempFile.setFileTemplate(QDir::temp().filePath("tempFile_X.txt"));
+    tempFile.open();
 }
+
+
 
 MainWindow::~MainWindow()
 {
     delete ui;
 }
 
-// Функция для создания нового файла
-void MainWindow::onNewFile()
+void MainWindow::on_actionNew_triggered()
 {
+
+
+
     ui->textEdit->clear();
+
+    currentFile.clear();
+
 }
 
-// Функция для сохранения файла
-void MainWindow::onSaveFile()
+void MainWindow::on_actionOpen_triggered()
 {
-    QString fileName = QFileDialog::getSaveFileName(this, tr("Сохранить файл"), "", tr("HTML файлы (*.html);;Все файлы (*)"));
-    if (!fileName.isEmpty()) {
-        QFile file(fileName);
-        if (file.open(QFile::WriteOnly | QFile::Text)) {
-            QTextStream out(&file);
-            out << ui->textEdit->toHtml(); // Сохраняем как HTML
-            file.close();
+
+    QString fileName = QFileDialog::getOpenFileName(this, "Open the file");
+    QFile file(fileName);
+
+
+    if (!file.open(QIODevice::ReadOnly | QFile::Text)) {
+        QMessageBox::warning(this, "Warning", "Cannot open file: " + file.errorString());
+        return;
+    }
+
+    currentFile = fileName;
+    QTextStream in(&file);
+
+
+    QString content = in.readAll();
+    ui->textEdit->setHtml(content);
+
+    file.close();
+}
+
+void MainWindow::saveToTempFile()
+{
+
+    if (!tempFile.isOpen()) {
+        if (!tempFile.open()) {
+            QMessageBox::warning(this, "Ошибка", "Не удалось открыть временный файл для записи.");
+            return;
         }
     }
+
+    QTextStream out(&tempFile);
+    out << ui->textEdit->toHtml();
+    tempFile.flush();
+    tempFile.close();
 }
 
-
-// Функция для открытия файла
-void MainWindow::onOpenFile()
+void MainWindow::restoreFromTempFile()
 {
-    QString fileName = QFileDialog::getOpenFileName(this, tr("Открыть файл"), "", tr("HTML файлы (*.html);;Все файлы (*)"));
-    if (!fileName.isEmpty()) {
-        QFile file(fileName);
-        if (file.open(QFile::ReadOnly | QFile::Text)) {
-            QTextStream in(&file);
-            ui->textEdit->setHtml(in.readAll()); // Открываем как HTML
-            file.close();
-        }
+
+    if (tempFile.isOpen()) {
+        tempFile.close();
     }
+
+
+    if (!tempFile.open()) {
+        QMessageBox::warning(this, "Ошибка", "Не удалось открыть временный файл для чтения.");
+        return;
+    }
+
+    QTextStream in(&tempFile);
+    QString content = in.readAll();
+    ui->textEdit->setHtml(content);
+    tempFile.close();
 }
 
-// Функция для сохранения таблицы
-void MainWindow::onSaveTable()
+
+void MainWindow::on_actionSave_triggered()
 {
-    QString fileName = QFileDialog::getSaveFileName(this, tr("Сохранить таблицу"), "", tr("HTML файлы (*.html);;Все файлы (*)"));
-    if (!fileName.isEmpty()) {
-        QFile file(fileName);
-        if (file.open(QFile::WriteOnly | QFile::Text)) {
-            QTextStream out(&file);
 
-            // Начало HTML таблицы
-            out << "<html><body><table border=\"1\">";
+    if (currentFile.isEmpty()) {
+        QString fileName = QFileDialog::getSaveFileName(this, "Save the file");
+        if (fileName.isEmpty()) {
+            return;
+        }
+        currentFile = fileName;
+    }
 
-            int rowCount = ui->tableWidget->rowCount();
-            int columnCount = ui->tableWidget->columnCount();
+    QFile file(currentFile);
 
-            // Сохранение каждой строки и колонки таблицы
-            for (int row = 0; row < rowCount; ++row) {
-                out << "<tr>";  // Начало строки
-                for (int column = 0; column < columnCount; ++column) {
-                    QTableWidgetItem *item = ui->tableWidget->item(row, column);
-                    QString cellText = item ? item->text() : "";
+    if (!file.open(QIODevice::WriteOnly | QFile::Text)) {
+        QMessageBox::warning(this, "Warning", "Cannot save file: " + file.errorString());
+        return;
+    }
 
-                    // Извлечение стилей ячейки
-                    QString fontStyle;
-                    if (item) {
-                        QFont font = item->font();
-                        QColor textColor = item->foreground().color();
+    QTextStream out(&file);
+    QString content = ui->textEdit->toHtml();
+    out << content;
+    file.close();
+}
 
-                        fontStyle = "style='";
 
-                        // Устанавливаем жирный шрифт
-                        if (font.bold()) fontStyle += "font-weight:bold;";
-                        // Курсив
-                        if (font.italic()) fontStyle += "font-style:italic;";
-                        // Зачеркивание
-                        if (font.strikeOut()) fontStyle += "text-decoration:line-through;";
-                        // Цвет текста
-                        fontStyle += "color:" + textColor.name() + ";";
-                        // Сохранение шрифта
-                        fontStyle += "font-family:" + font.family() + ";";
-                        // Сохранение размера шрифта
-                        fontStyle += "font-size:" + QString::number(font.pointSize()) + "pt;";
-                        fontStyle += "'";
-                    }
 
-                    // Сохранение ячейки с форматированием
-                    out << "<td " << fontStyle << ">" << cellText << "</td>";
-                }
-                out << "</tr>";  // Конец строки
+
+
+void MainWindow::on_actionClear_triggered()
+{
+
+    saveToTempFile();
+    ui->textEdit->clear();
+
+
+}
+
+void MainWindow::on_actionRestore_triggered()
+{
+    restoreFromTempFile();
+}
+
+
+
+void MainWindow::on_addTableButton_clicked()
+{
+
+    TableDialog *dialog = new TableDialog(this);
+    connect(dialog, &TableDialog::accepted, this, &MainWindow::on_tableDialogAccepted);
+
+    dialog->exec();
+}
+
+void MainWindow::on_tableDialogAccepted()
+{
+    TableDialog *dialog = qobject_cast<TableDialog *>(sender());
+    if (dialog) {
+        int rows = dialog->getRowCount();
+        int columns = dialog->getColumnCount();
+
+
+        QString tableHtml = "<table border='1'>";
+        for (int i = 0; i < rows; ++i) {
+            tableHtml += "<tr>";
+            for (int j = 0; j < columns; ++j) {
+                tableHtml += "<td style='padding: 20px;'> </td>";
             }
-
-            out << "</table></body></html>";
-            file.close();
+            tableHtml += "</tr>";
         }
-    }
-}
+        tableHtml += "</table>";
 
-
-// Функция для открытия  таблицы
-void MainWindow::onOpenTable()
-{
-    QString fileName = QFileDialog::getOpenFileName(this, tr("Открыть таблицу"), "", tr("HTML файлы (*.html);;Все файлы (*)"));
-    if (!fileName.isEmpty()) {
-        QFile file(fileName);
-        if (file.open(QFile::ReadOnly | QFile::Text)) {
-            QTextStream in(&file);
-            QString htmlContent = in.readAll();
-
-            // Парсинг HTML для заполнения таблицы
-            QRegularExpression rowRegex("<tr>(.+?)</tr>");
-            QRegularExpression cellRegex("<td.*?>(.*?)</td>");
-            QRegularExpression styleRegex("style='(.*?)'");
-
-            ui->tableWidget->setRowCount(0);
-            QRegularExpressionMatchIterator rowMatchIterator = rowRegex.globalMatch(htmlContent);
-
-            while (rowMatchIterator.hasNext()) {
-                QRegularExpressionMatch rowMatch = rowMatchIterator.next();
-                QString rowData = rowMatch.captured(1);
-                QRegularExpressionMatchIterator cellMatchIterator = cellRegex.globalMatch(rowData);
-                int currentRowCount = ui->tableWidget->rowCount();
-                ui->tableWidget->insertRow(currentRowCount);
-                int column = 0;
-
-                while (cellMatchIterator.hasNext()) {
-                    QRegularExpressionMatch cellMatch = cellMatchIterator.next();
-                    QString cellText = cellMatch.captured(1);
-
-                    // Извлечение стилей ячейки
-                    QRegularExpressionMatch styleMatch = styleRegex.match(cellMatch.captured(0));
-                    QTableWidgetItem *newItem = new QTableWidgetItem(cellText);
-
-                    if (styleMatch.hasMatch()) {
-                        QString styleData = styleMatch.captured(1);
-
-                        // Применение стилей (жирный, курсив, зачеркивание, цвет)
-                        if (styleData.contains("font-weight:bold")) newItem->setFont(QFont("", -1, QFont::Bold));
-                        if (styleData.contains("font-style:italic")) newItem->setFont(QFont("", -1, QFont::Normal, true));
-                        if (styleData.contains("text-decoration:line-through")) {
-                            QFont font = newItem->font();
-                            font.setStrikeOut(true);
-                            newItem->setFont(font);
-                        }
-                        if (styleData.contains("font-size:")) {
-                            QFont font = newItem->font();
-                            font.setStrikeOut(true);
-                            newItem->setFont(font);
-                        }
-                        QFont font;
-                        // Извлечение размера шрифта
-                        QRegularExpression fontSizeRegex("font-size:(\\d+)pt");
-                        QRegularExpressionMatch fontSizeMatch = fontSizeRegex.match(styleData);
-                        if (fontSizeMatch.hasMatch()) {
-                            int fontSize = fontSizeMatch.captured(1).toInt();
-                            font.setPointSize(fontSize);
-                        }
-
-                        // Извлечение шрифта
-                        QRegularExpression fontFamilyRegex("font-family:([^;]+);");
-                        QRegularExpressionMatch fontFamilyMatch = fontFamilyRegex.match(styleData);
-                        if (fontFamilyMatch.hasMatch()) {
-                            QString fontFamily = fontFamilyMatch.captured(1);
-                            font.setFamily(fontFamily);
-                        }
-
-                        newItem->setFont(font);
-                        QRegularExpression colorRegex("color:(#[0-9a-fA-F]{6})");
-                        QRegularExpressionMatch colorMatch = colorRegex.match(styleData);
-                        if (colorMatch.hasMatch()) {
-                            QColor textColor(colorMatch.captured(1));
-                            newItem->setForeground(textColor);
-                        }
-                    }
-
-                    ui->tableWidget->setItem(currentRowCount, column, newItem);
-                    column++;
-                }
-            }
-            file.close();
-        }
+        ui->textEdit->insertHtml(tableHtml);
     }
 }
 
 
 
-void MainWindow::onClearText()
+void MainWindow::onFontChanged(const QFont &font)
 {
-    QFile file(tempFilePath);
-    if (file.open(QIODevice::WriteOnly | QIODevice::Text)) {
-        QTextStream out(&file);
-        out << ui->textEdit->toPlainText(); // Сохраняем текст в файл
-        file.close();
-    }
-
-    ui->textEdit->clear(); // Очищаем текстовый редактор
-}
-
-void MainWindow::onRestoreText()
-{
-    QFile file(tempFilePath);
-    if (file.open(QIODevice::ReadOnly | QIODevice::Text)) {
-        QTextStream in(&file);
-        QString text = in.readAll(); // Читаем содержимое временного файла
-        ui->textEdit->setPlainText(text); // Восстанавливаем текст в редакторе
-        file.close();
-    } else {
-        QMessageBox::warning(this, tr("Ошибка"), tr("Невозможно открыть временный файл."));
-    }
-}
-
-void MainWindow::findText()
-{
-    bool ok;
-    QString searchText = QInputDialog::getText(this, tr("Найти"), tr("Введите текст для поиска:"), QLineEdit::Normal, "", &ok);
-
-    if (ok && !searchText.isEmpty()) {
-        if (!ui->textEdit->find(searchText)) {
-            QMessageBox::information(this, tr("Поиск"), tr("Текст не найден"));
-        }
-    }
-}
-
-void MainWindow::replaceText()
-{
-    bool ok;
-    QString searchText = QInputDialog::getText(this, tr("Найти"), tr("Введите текст для поиска:"), QLineEdit::Normal, "", &ok);
-
-    if (ok && !searchText.isEmpty()) {
-        QString replaceText = QInputDialog::getText(this, tr("Заменить"), tr("Заменить на:"), QLineEdit::Normal, "", &ok);
-
-        if (ok && !replaceText.isEmpty()) {
-            ui->textEdit->moveCursor(QTextCursor::Start);
-            while (ui->textEdit->find(searchText)) {
-                ui->textEdit->textCursor().insertText(replaceText);
-            }
-        }
-    }
-}
-
-void MainWindow::copyText()
-{
-    ui->textEdit->copy();
-}
-
-void MainWindow::pasteText()
-{
-    ui->textEdit->paste();
-}
-
-void MainWindow::onDefaultSettings(){
-
-    int font_size = 10;
-    QColor color = "Black";
-    int row_count = 5;
-    int column_count = 5;
-    QString font_family = "MS Shell Dlg 2";
-
-    ui->textEdit->selectAll();
-    QTextCursor cursor = ui->textEdit->textCursor();
     QTextCharFormat format;
+    format.setFont(font);
+    mergeFormatOnWordOrSelection(format);
+    saveSettings();
+}
 
-    format.setFontWeight(QFont::Normal);
-    format.setFontItalic(false);
-    format.setFontStrikeOut(false);
-    format.setFontPointSize(font_size);
-    format.setForeground(color);
+void MainWindow::onFontSizeChanged(int size)
+{
+    QTextCharFormat format;
+    format.setFontPointSize(size);
+    mergeFormatOnWordOrSelection(format);
+    saveSettings();
+}
+
+void MainWindow::onTextColorChanged()
+{
+    QColor color = QColorDialog::getColor(Qt::black, this, "Select Text Color");
+    if (color.isValid()) {
+        QTextCharFormat format;
+        format.setForeground(color);
+        mergeFormatOnWordOrSelection(format);
+    }
+}
+
+void MainWindow::onPaddingChanged(int padding)
+{
+    QString paddingStyle = QString("padding: %1px;").arg(padding);
+
+    QTextCursor cursor = ui->textEdit->textCursor();
+    QTextTable *table = cursor.currentTable();
+
+    if (table) {
+        int rows = table->rows();
+        int columns = table->columns();
+        for (int row = 0; row < rows; ++row) {
+            for (int col = 0; col < columns; ++col) {
+                QTextTableCell cell = table->cellAt(row, col);
+                QTextCursor cellCursor = cell.firstCursorPosition();
+
+                QTextBlockFormat cellFormat = cellCursor.blockFormat();
+
+                cellFormat.setLeftMargin(padding);
+                cellFormat.setRightMargin(padding);
+                cellFormat.setTopMargin(padding);
+                cellFormat.setBottomMargin(padding);
+
+                cellCursor.setBlockFormat(cellFormat);
+            }
+        }
+    }
+
+}
+
+
+
+void MainWindow::onCellColorChanged()
+{
+    QColor color = QColorDialog::getColor(Qt::white, this, "Выберите цвет ячейки");
+
+    if (color.isValid()) {
+        currentCellColor = color;
+
+        QTextCursor cursor = ui->textEdit->textCursor();
+
+        QTextTable *table = cursor.currentTable();
+        if (table) {
+            QTextTableCell currentCell = table->cellAt(cursor);
+
+            if (currentCell.isValid()) {
+                QTextTableCellFormat cellFormat;
+                cellFormat.setBackground(currentCellColor);
+                currentCell.setFormat(cellFormat);
+            } else {
+                QMessageBox::warning(this, "Предупреждение", "Нет валидной ячейки под курсором.");
+            }
+        }
+    }
+}
+
+void MainWindow::mergeFormatOnWordOrSelection(const QTextCharFormat &format)
+{
+    QTextCursor cursor = ui->textEdit->textCursor();
+    if (!cursor.hasSelection()) {
+        cursor.select(QTextCursor::WordUnderCursor);
+    }
     cursor.mergeCharFormat(format);
-    ui->textEdit->setFontFamily(font_family);
+    ui->textEdit->mergeCurrentCharFormat(format);
+}
 
-    ui->fontComboBox->setCurrentFont(font_family);
-    ui->spinFontSize->setValue(font_size);
+void MainWindow::on_actionFind_triggered()
+{
 
-    if (ui->tableWidget->rowCount() > row_count){
-        for (int i = ui->tableWidget->rowCount(); i >= row_count; --i){
-            ui->tableWidget->removeRow(i);
-        }
-    }else{
-        for (int i = ui->tableWidget->rowCount(); i < row_count; ++i){
-            ui->tableWidget->insertRow(i);
-        }
+    findReplaceDialog->show();
+}
+
+
+void MainWindow::findNext()
+{
+    QString searchText = findReplaceDialog->getSearchText();
+    bool caseSensitive = findReplaceDialog->isCaseSensitive();
+
+    QTextDocument::FindFlags flags;
+    if (caseSensitive) {
+        flags |= QTextDocument::FindCaseSensitively;
     }
 
-    if (ui->tableWidget->columnCount() > column_count){
-        for (int i = ui->tableWidget->columnCount(); i >= column_count; --i){
-            ui->tableWidget->removeColumn(i);
-        }
-    }else{
-        for (int i = ui->tableWidget->columnCount(); i < column_count; ++i){
-            ui->tableWidget->insertColumn(i);
-        }
+
+    bool found = ui->textEdit->find(searchText, flags);
+
+    if (!found) {
+        QTextCursor cursor = ui->textEdit->textCursor();
+        cursor.setPosition(0);
+        ui->textEdit->setTextCursor(cursor);
+
+
+        found = ui->textEdit->find(searchText, flags);
+    }
+
+    if (!found) {
+        QMessageBox::information(this, "Поиск", "Текст не найден.");
     }
 }
 
-void MainWindow::showAuthors()
+
+void MainWindow::replace()
 {
-    QMessageBox::information(this,
-                             "Авторы",
-                             "Сорокин Александр Николаевич\n"
-                             "Каримов Максим Витальевич\n"
-                             "Шипилов Дементий Андреевич\n"
-                             "ИП-215");
+    QString searchText = findReplaceDialog->getSearchText();
+    QString replaceText = findReplaceDialog->getReplaceText();
+    bool caseSensitive = findReplaceDialog->isCaseSensitive();
+
+    QTextDocument::FindFlags flags;
+    if (caseSensitive) {
+        flags |= QTextDocument::FindCaseSensitively;
+    }
+
+    QTextCursor cursor = ui->textEdit->textCursor();
+
+    cursor.movePosition(QTextCursor::Start);
+    ui->textEdit->setTextCursor(cursor);
+
+    if (ui->textEdit->find(searchText, flags)) {
+        cursor = ui->textEdit->textCursor();
+
+
+        if (cursor.selectedText() == searchText) {
+            cursor.insertText(replaceText);
+
+
+            cursor.movePosition(QTextCursor::NextCharacter);
+            ui->textEdit->setTextCursor(cursor);
+        }
+    } else {
+        QMessageBox::information(this, "Замена", "Текст не найден.");
+    }
 }
 
-void MainWindow::showHelp()
+
+
+
+
+
+void MainWindow::replaceAll()
 {
-    QMessageBox::information(this, "Помощь", "Это базовый текстовый и табличный редактор.\n\nИспользуйте меню 'Файл' для создания, открытия, сохранения файлов.\nИспользуйте меню 'Инструменты' для дополнительных действий.");
+    QString searchText = findReplaceDialog->getSearchText();
+    QString replaceText = findReplaceDialog->getReplaceText();
+    bool caseSensitive = findReplaceDialog->isCaseSensitive();
+
+    QTextDocument::FindFlags flags;
+    if (caseSensitive) {
+        flags |= QTextDocument::FindCaseSensitively;
+    }
+
+    QTextCursor cursor = ui->textEdit->textCursor();
+    cursor.movePosition(QTextCursor::Start);
+    ui->textEdit->setTextCursor(cursor);
+
+    int replacements = 0;
+    while (ui->textEdit->find(searchText, flags)) {
+        QTextCursor replaceCursor = ui->textEdit->textCursor();
+        replaceCursor.insertText(replaceText);
+        ++replacements;
+    }
+
+    if (replacements == 0) {
+        QMessageBox::information(this, "Замена", "Текст не найден.");
+    } else {
+        QMessageBox::information(this, "Замена", QString("Заменено %1 вхождений.").arg(replacements));
+    }
 }
 
 void MainWindow::closeEvent(QCloseEvent *event)
 {
-    saveSettings();
-    // Проверяем, были ли изменения в тексте
+
     if (ui->textEdit->document()->isModified()) {
-        QMessageBox::StandardButton resBtn = QMessageBox::question(this, tr("Закрыть"),
-            tr("Документ был изменен.\n"
-               "Хотите сохранить изменения?"),
-            QMessageBox::No | QMessageBox::Yes,
-            QMessageBox::Yes);
-        if (resBtn == QMessageBox::Yes) {
-            onSaveFile();
-        }
-    }
-    event->accept(); // Закрываем окно
-}
+        QMessageBox::StandardButton reply;
+        reply = QMessageBox::question(this, "Сохранить изменения?", "У вас есть несохранённые изменения. Хотите сохранить их?",
+                                      QMessageBox::Yes | QMessageBox::No | QMessageBox::Cancel);
 
-void MainWindow::loadSettings() {
-    QSettings settings("Text_table_editor", "MyApp");
-
-    QString font_family = settings.value("Text_editor/font", "MS Shell Dlg 2").toString();
-    int font_size = settings.value("Text_editor/font_size", 10).toInt();
-    bool is_bold = settings.value("Text_editor/bold", false).toBool();
-    bool is_italic = settings.value("Text_editor/italic", false).toBool();
-    bool is_strike_out = settings.value("Text_editor/strike-out", false).toBool();
-    QColor color = settings.value("Text_editor/color", "black").value<QColor>();
-    int row_count = settings.value("Table_settings/rows", 5).toInt();
-    int column_count = settings.value("Table_settings/columns", 5).toInt();
-
-    ui->textEdit->selectAll();
-    QTextCursor cursor = ui->textEdit->textCursor();
-    QTextCharFormat format;
-
-    ui->textEdit->setFontFamily(font_family);
-    ui->fontComboBox->setCurrentFont(font_family);
-    ui->spinFontSize->setValue(font_size);
-    format.setFontPointSize(font_size);
-    format.setFontWeight(is_bold == false ? QFont::Normal : QFont::Bold);
-    format.setFontItalic(is_italic);
-    format.setFontStrikeOut(is_strike_out);
-    format.setForeground(color);
-
-    cursor.mergeCharFormat(format);
-
-    if (ui->tableWidget->rowCount() > row_count){
-        for (int i = ui->tableWidget->rowCount(); i >= row_count; --i){
-            ui->tableWidget->removeRow(i);
-        }
-    }else{
-        for (int i = ui->tableWidget->rowCount(); i < row_count; ++i){
-            ui->tableWidget->insertRow(i);
+        if (reply == QMessageBox::Yes) {
+            if (currentFile.isEmpty()) {
+                on_actionSave_triggered();
+            } else {
+                saveToTempFile();
+            }
+        } else if (reply == QMessageBox::Cancel) {
+            event->ignore();
+            return;
         }
     }
 
-    if (ui->tableWidget->columnCount() > column_count){
-        for (int i = ui->tableWidget->columnCount(); i >= column_count; --i){
-            ui->tableWidget->removeColumn(i);
-        }
-    }else{
-        for (int i = ui->tableWidget->columnCount(); i < column_count; ++i){
-            ui->tableWidget->insertColumn(i);
-        }
-    }
-
+    event->accept();
 }
 
-void MainWindow::saveSettings() {
-    QSettings settings("Text_table_editor", "MyApp");
 
-    settings.beginGroup("Table_settings");
-    int rowCount = ui->tableWidget->rowCount();
-    int columnCount = ui->tableWidget->columnCount();
-    settings.setValue("rows", rowCount);
-    settings.setValue("columns", columnCount);
-    settings.endGroup();
 
-}
-
-//********ФУНКЦИИ, СОЗДАННЫЕ ЧЕРЕЗ СЛОТЫ***************
-
-void MainWindow::on_addRowButton_clicked()
+void MainWindow::saveSettings()
 {
-    int currentRowCount = ui->tableWidget->rowCount();
-    ui->tableWidget->insertRow(currentRowCount);
-}
+    QSettings settings("MyCompany", "MyApp");
+
+    settings.setValue("font", ui->textEdit->currentFont());
+    settings.setValue("fontSize", ui->textEdit->fontPointSize());
+
+    QFontComboBox *fontComboBox = findChild<QFontComboBox*>();
+    if (fontComboBox) {
+        settings.setValue("fontComboBox", fontComboBox->currentFont().family());
+    }
+    QSpinBox *fontSizeSpinBox = findChild<QSpinBox*>();
+    if (fontSizeSpinBox) {
+        settings.setValue("fontSizeSpinBox", fontSizeSpinBox->value());
+    }
+
+    QSpinBox *paddingSpinBox = findChild<QSpinBox*>();
+    if (paddingSpinBox) {
+        settings.setValue("padding", paddingSpinBox->value());
+    }
 
 
-void MainWindow::on_removeRowButton_clicked()
-{
-    // Получаем текущий индекс выбранной строки
-    int currentRow = ui->tableWidget->currentRow();
-
-    // Если строка выбрана удаляем её
-    if (currentRow != -1) {
-        ui->tableWidget->removeRow(currentRow);
-    } else {
-        QMessageBox::information(this, tr("Удаление строки"), tr("Пожалуйста, выберите строку для удаления."));
+    QComboBox *comboBox = findChild<QComboBox*>();
+    if (comboBox) {
+        settings.setValue("comboBoxIndex", comboBox->currentIndex());
+        settings.setValue("comboBoxText", comboBox->currentText());
+    }
+    if (fontSizeSpinBox) {
+        settings.setValue("fontSizeSpinBox", fontSizeSpinBox->value());
     }
 }
 
-void MainWindow::on_addColButton_clicked()
+
+void MainWindow::loadSettings()
 {
-    int currentColumnCount = ui->tableWidget->columnCount();
-    ui->tableWidget->insertColumn(currentColumnCount);
-}
+    QSettings settings("MyCompany", "MyApp");
 
-void MainWindow::on_removeColButton_clicked()
-{
-    // Получаем текущий индекс выбранной колонки
-        int currentColumn = ui->tableWidget->currentColumn();
 
-        // Если колонка выбрана удаляем её
-        if (currentColumn != -1) {
-            ui->tableWidget->removeColumn(currentColumn);
-        } else {
-            QMessageBox::information(this, tr("Удаление колонки"), tr("Пожалуйста, выберите колонку для удаления."));
-        }
-}
-
-void MainWindow::on_boldButton_clicked()
-{
-    QSettings settings("Text_table_editor", "MyApp");
-
-    // Изменение жирности текста в textEdit
-    QTextCursor cursor = ui->textEdit->textCursor();
-    if (cursor.hasSelection()) {
-        QTextCharFormat format;
-        bool is_bold = (cursor.charFormat().fontWeight() == QFont::Bold) ? 1 : 0;
-        format.setFontWeight(is_bold == 1 ? QFont::Normal : QFont::Bold);
-        settings.setValue("Text_editor/bold", !is_bold);
-        cursor.mergeCharFormat(format);
+    QFont font = settings.value("font", QFont()).value<QFont>();
+    if (!font.family().isEmpty()) {
+        ui->textEdit->setCurrentFont(font);
     }
 
-    // Изменение жирности текста в выделенных ячейках tableWidget
-    QList<QTableWidgetItem*> selectedItems = ui->tableWidget->selectedItems();
-    for (QTableWidgetItem* item : selectedItems) {
-        if (item) {
-            QFont font = item->font();
-            font.setBold(!font.bold());
-            settings.setValue("Text_editor/bold", !font.bold());
-            item->setFont(font);
+    int fontSize = settings.value("fontSize", 12).toInt();
+    ui->textEdit->setFontPointSize(fontSize);
+
+
+    QString fontFamily = settings.value("fontComboBox", "").toString();
+    if (!fontFamily.isEmpty()) {
+        QFontComboBox *fontComboBox = findChild<QFontComboBox*>();
+        if (fontComboBox) {
+            fontComboBox->setCurrentFont(QFont(fontFamily));
         }
     }
-}
 
-void MainWindow::on_italicButton_clicked()
-{
-    QSettings settings("Text_table_editor", "MyApp");
 
-    // Изменение курсива текста в textEdit
-    QTextCursor cursor = ui->textEdit->textCursor();
-    if (cursor.hasSelection()) {
-        QTextCharFormat format;
-        bool flag = !cursor.charFormat().fontItalic();
-        format.setFontItalic(flag);
-        settings.setValue("Text_editor/italic", flag);
-        cursor.mergeCharFormat(format);
+    int savedFontSize = settings.value("fontSizeSpinBox", 12).toInt();
+    QSpinBox *fontSizeSpinBox = findChild<QSpinBox*>();
+    if (fontSizeSpinBox) {
+        fontSizeSpinBox->setValue(savedFontSize);
     }
 
-    // Изменение курсива текста в выделенных ячейках tableWidget
-    QList<QTableWidgetItem*> selectedItems = ui->tableWidget->selectedItems();
-    for (QTableWidgetItem* item : selectedItems) {
-        if (item) {
-            QFont font = item->font();
-            bool flag = !font.italic();
-            font.setItalic(flag);
-            settings.setValue("Text_editor/italic", flag);
-            item->setFont(font);
-        }
+    int savedPadding = settings.value("padding", 10).toInt();
+    QSpinBox *paddingSpinBox = findChild<QSpinBox*>();
+    if (paddingSpinBox) {
+        paddingSpinBox->setValue(savedPadding);
     }
-}
 
-void MainWindow::on_strikeoutButton_clicked()
-{
-    QSettings settings("Text_table_editor", "MyApp");
-    bool flag = 0;
-    // Изменение зачеркнутого текста в textEdit
-        QTextCursor cursor = ui->textEdit->textCursor();
-        if (cursor.hasSelection()) {
-            QTextCharFormat format;
-            flag = !cursor.charFormat().fontStrikeOut();
-            format.setFontStrikeOut(flag);
-            settings.setValue("Text_editor/strike-out", flag);
-            cursor.mergeCharFormat(format);
-        }
 
-        // Изменение зачеркнутого текста в выделенных ячейках tableWidget
-        QList<QTableWidgetItem*> selectedItems = ui->tableWidget->selectedItems();
-        for (QTableWidgetItem* item : selectedItems) {
-            if (item) {
-                QFont font = item->font();
-                flag = !font.strikeOut();
-                font.setStrikeOut(flag);
-                settings.setValue("Text_editor/strike-out", flag);
-                item->setFont(font);
+    int comboBoxIndex = settings.value("comboBoxIndex", -1).toInt();
+    QString comboBoxText = settings.value("comboBoxText", "").toString();
+    QComboBox *comboBox = findChild<QComboBox*>();
+    if (comboBox) {
+        if (comboBoxIndex != -1) {
+            comboBox->setCurrentIndex(comboBoxIndex);
+        } else if (!comboBoxText.isEmpty()) {
+            int index = comboBox->findText(comboBoxText);
+            if (index != -1) {
+                comboBox->setCurrentIndex(index);
             }
         }
-}
-
-void MainWindow::on_fontComboBox_currentFontChanged(const QFont &fontName)
-{
-    QSettings settings("Text_table_editor", "MyApp");
-    // Изменение шрифта в textEdit
-       QFont font(fontName);
-       ui->textEdit->setCurrentFont(font);
-
-       // Изменение шрифта в выделенных ячейках tableWidget
-       QList<QTableWidgetItem*> selectedItems = ui->tableWidget->selectedItems();
-       for (QTableWidgetItem* item : selectedItems) {
-           if (item) {
-               item->setFont(font);
-           }
-       }
-       settings.setValue("Text_editor/font", fontName);
-}
-
-// Слот для обновления размера шрифта
-void MainWindow::on_spinFontSize_valueChanged(int arg1)
-{
-    QSettings settings("Text_table_editor", "MyApp");
-
-    QTextCursor cursor = ui->textEdit->textCursor();
-    if (cursor.hasSelection()) {
-        QTextCharFormat format;
-        format.setFontPointSize(arg1);
-        cursor.mergeCharFormat(format);
-    }
-
-    QList<QTableWidgetItem*> selectedItems = ui->tableWidget->selectedItems();
-    for (QTableWidgetItem* item : selectedItems) {
-        if (item) {
-            QFont font = item->font();
-            font.setPointSize(arg1);
-            item->setFont(font);
-        }
-    }
-    settings.setValue("Text_editor/font_size", arg1);
-}
-
-void MainWindow::on_colorButton_clicked()
-{
-    QSettings settings("Text_table_editor", "MyApp");
-
-    QColor color = QColorDialog::getColor(Qt::white, this, "Выбор цвета текста");
-    if (color.isValid()) {
-        QTextCharFormat format;
-        format.setForeground(color);
-        QTextCursor cursor = ui->textEdit->textCursor();
-        cursor.mergeCharFormat(format);
-
-        QList<QTableWidgetItem*> selectedItems = ui->tableWidget->selectedItems();
-        for (QTableWidgetItem* item : selectedItems) {
-            if (item) {
-                item->setForeground(QBrush(color));
-            }
-        }
-        settings.setValue("Text_editor/color", color);
     }
 }
+
+
+
+void MainWindow::onComboBoxChanged(int index)
+{
+    QSettings settings("MyCompany", "MyApp");
+    settings.setValue("comboBoxIndex", index);
+    saveSettings();
+}
+
+void MainWindow::onSpinBoxChanged(int value)
+{
+    QSettings settings("MyCompany", "MyApp");
+    settings.setValue("spinBoxValue", value);
+    saveSettings();
+}
+
+
