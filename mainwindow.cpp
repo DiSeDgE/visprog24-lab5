@@ -2,7 +2,7 @@
 #include "ui_mainwindow.h"
 #include "tabledialog.h"
 #include "findreplacedialog.h"
-
+#include "graphiceditor.h"
 
 
 
@@ -51,6 +51,10 @@ MainWindow::MainWindow(QWidget *parent)
 
     connect(ui->actionRestore, &QAction::triggered, this, &MainWindow::on_actionRestore_triggered);
 
+    QAction *openGraphicEditorAction = toolbar->addAction("Open Graphic Editor");
+    connect(openGraphicEditorAction, &QAction::triggered, this, &MainWindow::openGraphicEditor);
+
+
     tempFile.setFileTemplate(QDir::temp().filePath("tempFile_X.txt"));
     tempFile.open();
 }
@@ -60,6 +64,12 @@ MainWindow::MainWindow(QWidget *parent)
 MainWindow::~MainWindow()
 {
     delete ui;
+}
+
+void MainWindow::openGraphicEditor()
+{
+    GraphicEditor *graphicEditor = new GraphicEditor(this);
+    graphicEditor->exec();
 }
 
 void MainWindow::on_actionNew_triggered()

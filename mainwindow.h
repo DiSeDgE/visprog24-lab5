@@ -70,6 +70,8 @@ private slots:
     void onComboBoxChanged(int index);
     void onSpinBoxChanged(int value);
 
+    void openGraphicEditor();
+
 private:
     Ui::MainWindow *ui;
     QString currentFile;
