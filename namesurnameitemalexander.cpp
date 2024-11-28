@@ -1,4 +1,4 @@
-#include "namesurnameitemalexander.h"
+#include "NameSurnameItemAlexander.h"
 #include <QPainter>
 
 NameSurnameItemAlexander::NameSurnameItemAlexander(QGraphicsItem *parent)
@@ -9,95 +9,106 @@ NameSurnameItemAlexander::NameSurnameItemAlexander(QGraphicsItem *parent)
 
 QRectF NameSurnameItemAlexander::boundingRect() const
 {
-    return QRectF(0, -5, 200, 70); // Размер области рисования
+    return QRectF(0, 0, 300, 60); // Размер области рисования
 }
 
-void NameSurnameItemAlexander::paint(QPainter *painter, const QStyleOptionGraphicsItem *option, QWidget *widget)
+void NameSurnameItemAlexander::paint(QPainter *painter,
+                                     const QStyleOptionGraphicsItem *option,
+                                     QWidget *widget)
 {
+    Q_UNUSED(option)
+    Q_UNUSED(widget)
+
     painter->setPen(QPen(Qt::black));
     painter->setBrush(QBrush(Qt::black));
 
-    drawLetterI(painter);
-    drawLetterL(painter);
-    drawLetterY(painter);
-    drawLetterA(painter);
+    // Имя "Alexander"
+    drawLetterA(painter, 0, 0);
+    drawLetterL(painter, 30, 0);
+    drawLetterE(painter, 60, 0);
+    drawLetterX(painter, 90, 0);
+    drawLetterA(painter, 120, 0);
+    drawLetterN(painter, 150, 0);
+    drawLetterD(painter, 180, 0);
+    drawLetterE(painter, 210, 0);
+    drawLetterR(painter, 240, 0);
 
-    drawLetterF(painter);
-    drawLetterI1(painter);
-    drawLetterS(painter);
-    drawLetterK(painter);
-    drawLetterO(painter);
-    drawLetterV(painter);
+    // Фамилия "Sorokin"
+    drawLetterS(painter, 0, 30);
+    drawLetterO(painter, 30, 30);
+    drawLetterR(painter, 60, 30);
+    drawLetterO(painter, 90, 30);
+    drawLetterK(painter, 120, 30);
+    drawLetterI(painter, 150, 30);
+    drawLetterN(painter, 180, 30);
 }
 
-void NameSurnameItemAlexander::drawLetterI(QPainter *painter)
+void NameSurnameItemAlexander::drawLetterA(QPainter *painter, int x, int y)
 {
-    painter->drawRect(5, 0, 5, 25); // Прямая линия для "И"
-    painter->drawRect(15, 0, 5, 25);
-    painter->drawLine(5, 25, 20, 0);
+    painter->drawLine(x + 10, y, x, y + 30);      // Левая диагональ
+    painter->drawLine(x + 10, y, x + 20, y + 30); // Правая диагональ
+    painter->drawLine(x + 5, y + 15, x + 15, y + 15); // Горизонтальная перекладина
 }
 
-void NameSurnameItemAlexander::drawLetterL(QPainter *painter)
+void NameSurnameItemAlexander::drawLetterL(QPainter *painter, int x, int y)
 {
-    // Вертикальная линия
-    painter->drawLine(25, 0, 25, 25); // Вертикальная линия для "Л"
-
-    // Диагональная линия
-    painter->drawLine(25, 25, 35, 25); // Диагональная линия для "Л"
-
+    painter->drawLine(x, y, x, y + 30);           // Вертикальная линия
+    painter->drawLine(x, y + 30, x + 20, y + 30); // Горизонтальная линия
 }
 
-
-
-void NameSurnameItemAlexander::drawLetterY(QPainter *painter)
+void NameSurnameItemAlexander::drawLetterE(QPainter *painter, int x, int y)
 {
-    painter->drawLine(40, 0, 45, 12); // "Й"
-    painter->drawLine(50, 0, 45, 12);
-    painter->drawLine(45, 12, 45, 25);
-    painter->drawEllipse(40, -5, 10, 5);
+    painter->drawLine(x, y, x, y + 30);           // Вертикальная линия
+    painter->drawLine(x, y, x + 20, y);           // Верхняя горизонтальная
+    painter->drawLine(x, y + 15, x + 15, y + 15); // Средняя горизонтальная
+    painter->drawLine(x, y + 30, x + 20, y + 30); // Нижняя горизонтальная
 }
 
-void NameSurnameItemAlexander::drawLetterA(QPainter *painter)
+void NameSurnameItemAlexander::drawLetterX(QPainter *painter, int x, int y)
 {
-    painter->drawLine(60, 25, 65, 0); // "А"
-    painter->drawLine(65, 0, 70, 25);
-    painter->drawLine(62, 12, 68, 12);
+    painter->drawLine(x, y, x + 20, y + 30); // Левая диагональ
+    painter->drawLine(x + 20, y, x, y + 30); // Правая диагональ
 }
 
-void NameSurnameItemAlexander::drawLetterF(QPainter *painter)
+void NameSurnameItemAlexander::drawLetterN(QPainter *painter, int x, int y)
 {
-    painter->drawRect(80, 0, 5, 25); // "Ф"
-    painter->drawEllipse(75, 5, 15, 15);
+    painter->drawLine(x, y, x, y + 30);           // Левая вертикальная
+    painter->drawLine(x, y, x + 20, y + 30);      // Диагональная
+    painter->drawLine(x + 20, y, x + 20, y + 30); // Правая вертикальная
 }
 
-void NameSurnameItemAlexander::drawLetterI1(QPainter *painter)
+void NameSurnameItemAlexander::drawLetterD(QPainter *painter, int x, int y)
 {
-    painter->drawRect(100, 0, 5, 25); // "И"
-    painter->drawRect(110, 0, 5, 25);
-    painter->drawLine(100, 25, 115, 0);
+    painter->drawLine(x, y, x, y + 30);                 // Левая вертикальная
+    painter->drawArc(x, y, 30, 30, 90 * 16, -180 * 16); // Полукруг
 }
 
-void NameSurnameItemAlexander::drawLetterS(QPainter *painter)
+void NameSurnameItemAlexander::drawLetterR(QPainter *painter, int x, int y)
 {
-    painter->drawRect(120, 0, 10, 5); // "С"
-    painter->drawRect(120, 20, 10, 5);
-    painter->drawRect(120, 5, 5, 15);
+    painter->drawLine(x, y, x, y + 30);                 // Левая вертикальная
+    painter->drawArc(x, y, 20, 20, 90 * 16, -180 * 16); // Верхний полукруг
+    painter->drawLine(x + 10, y + 15, x + 20, y + 30);  // Наклонная
 }
 
-void NameSurnameItemAlexander::drawLetterK(QPainter *painter)
+void NameSurnameItemAlexander::drawLetterS(QPainter *painter, int x, int y)
 {
-    painter->drawLine(135, 0, 135, 25); // "К"
-    painter->drawLine(135, 12, 145, 0);
-    painter->drawLine(135, 12, 145, 25);
+    painter->drawArc(x, y, 20, 15, 0, 180 * 16);             // Верхняя дуга
+    painter->drawArc(x, y + 15, 20, 15, 180 * 16, 180 * 16); // Нижняя дуга
 }
 
-void NameSurnameItemAlexander::drawLetterO(QPainter *painter)
+void NameSurnameItemAlexander::drawLetterO(QPainter *painter, int x, int y)
 {
-    painter->drawEllipse(150, 0, 15, 25); // "О"
+    painter->drawEllipse(x, y, 20, 30); // Овал
 }
 
-void NameSurnameItemAlexander::drawLetterV(QPainter *painter)
+void NameSurnameItemAlexander::drawLetterK(QPainter *painter, int x, int y)
 {
-    painter->drawLine(170, 0, 175, 25); // "В"
-    painter->drawLine(175, 25, 180, 0);
+    painter->drawLine(x, y, x, y + 30);           // Вертикальная линия
+    painter->drawLine(x, y + 15, x + 20, y);      // Верхняя диагональ
+    painter->drawLine(x, y + 15, x + 20, y + 30); // Нижняя диагональ
+}
+
+void NameSurnameItemAlexander::drawLetterI(QPainter *painter, int x, int y)
+{
+    painter->drawLine(x + 10, y, x + 10, y + 30); // Вертикальная линия
 }

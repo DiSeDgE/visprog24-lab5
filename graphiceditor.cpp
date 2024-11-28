@@ -206,22 +206,15 @@ void GraphicEditor::on_btnBrush_clicked()
     erasing = false;
 }
 
-
-
-
 void GraphicEditor::on_btnEraser_clicked()
 {
     int size = ui->eraserSizeSpinBox->value();
-    QColor backgroundColor = scene->backgroundBrush().color();
-
-
-    eraserPen = QPen(backgroundColor, size, Qt::SolidLine);
-
+    eraserPen = QPen(Qt::SolidLine);
+    eraserPen.setWidth(size);
+    eraserPen.setColor(Qt::transparent);
 
     erasing = true;
 }
-
-
 
 bool GraphicEditor::eventFilter(QObject *object, QEvent *event)
 {
@@ -276,11 +269,19 @@ void GraphicEditor::handleSceneMouseMove(QGraphicsSceneMouseEvent *event)
 
             lastPoint = event->scenePos();
         } else if (erasing) {
-            QGraphicsEllipseItem *eraser = new QGraphicsEllipseItem(QRectF(eraseStart, event->scenePos()).normalized());
-            eraser->setPen(eraserPen);
-            eraser->setBrush(Qt::NoBrush);
-            scene->addItem(eraser);
-            eraseStart = event->scenePos();
+            QRectF eraserArea(event->scenePos().x() - eraserPen.width() / 2,
+                              event->scenePos().y() - eraserPen.width() / 2,
+                              eraserPen.width(),
+                              eraserPen.width());
+
+            QList<QGraphicsItem *> items = scene->items(eraserArea);
+
+            for (QGraphicsItem *item : items) {
+                if (item->data(0).toString() == "brushItem") {
+                    scene->removeItem(item);
+                    delete item;
+                }
+            }
         }
     }
 }

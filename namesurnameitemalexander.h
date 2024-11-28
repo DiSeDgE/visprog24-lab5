@@ -2,7 +2,7 @@
 #define NAMESURNAMEITEMALEXANDER_H
 
 #include <QGraphicsItem>
-#include <QGraphicsScene>
+#include <QPainter>
 
 class NameSurnameItemAlexander : public QGraphicsItem
 {
@@ -13,16 +13,17 @@ public:
     void paint(QPainter *painter, const QStyleOptionGraphicsItem *option, QWidget *widget) override;
 
 private:
-    void drawLetterI(QPainter *painter);
-    void drawLetterL(QPainter *painter);
-    void drawLetterY(QPainter *painter);
-    void drawLetterA(QPainter *painter);
-    void drawLetterF(QPainter *painter);
-    void drawLetterI1(QPainter *painter);
-    void drawLetterS(QPainter *painter);
-    void drawLetterK(QPainter *painter);
-    void drawLetterO(QPainter *painter);
-    void drawLetterV(QPainter *painter);
+    void drawLetterA(QPainter *painter, int x, int y);
+    void drawLetterL(QPainter *painter, int x, int y);
+    void drawLetterE(QPainter *painter, int x, int y);
+    void drawLetterX(QPainter *painter, int x, int y);
+    void drawLetterN(QPainter *painter, int x, int y);
+    void drawLetterD(QPainter *painter, int x, int y);
+    void drawLetterR(QPainter *painter, int x, int y);
+    void drawLetterS(QPainter *painter, int x, int y);
+    void drawLetterO(QPainter *painter, int x, int y);
+    void drawLetterK(QPainter *painter, int x, int y);
+    void drawLetterI(QPainter *painter, int x, int y);
 };
 
 #endif // NAMESURNAMEITEMALEXANDER_H
